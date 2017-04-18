@@ -14,11 +14,11 @@
     <!-- Bootstrap core CSS -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- General ACE css -->
+    <!-- Sitewide css -->
     <link href="css/main.css" rel="stylesheet">
 
     <!-- Custom styles for this page -->
-    <link href="css/index.css" rel="stylesheet">
+    <link href="css/events.css" rel="stylesheet">
 
     <!-- Custom Fonts -->
     <link href='https://fonts.googleapis.com/css?family=Roboto+Slab' rel='stylesheet' type='text/css'>
@@ -35,12 +35,12 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#home"> Easy Points</a>
+          <a class="navbar-brand" href="index.html"> Easy Points</a>
         </div><!--/.nav-header -->
         <div id="navbar" class="collapse navbar-collapse">
           <ul class="nav navbar-nav navbar-right">
-            <li class="active"><a href="#home">Home</a></li>
-            <li><a href="events.html">Events</a></li>
+            <li><a href="index.html">Home</a></li>
+            <li class="active"><a href="events.html">Events</a></li>
             <li><a href="sign-ups.html">Sign Ups</a></li>
             <li><a href="admin.html">Admin</a></li>
             <!--<li><a href="points.html">Event</a></li>-->
@@ -48,18 +48,14 @@
         </div><!--/.nav-collapse -->
       </div><!--/.container -->
     </nav><!--.navbar-->
-    
-    <!-- Intro Section -->
-    <div id="brand">
-        <h1 class="brand-heading">Easy Points</h1>
-        <p class="intro-text">The simplest way to track organization involvement</p>
-    </div>
-    <div id="interactive">
-        <div id="form">
-            <input type="text" class="form-control" id="input-name" value="Your Name"><button type="button" class="btn btn-lg btn-primary" id="btn-points">Check Your Points</button>
+
+    <div class="container" id="calendar-container">
+        <div class="col-lg-10 col-lg-offset-1">
+            <h1>Calendar<hr></h1>
+            <div class="embed-responsive embed-responsive-16by9"><iframe src="https://calendar.google.com/calendar/embed?height=900&amp;wkst=1&amp;bgcolor=%23FFFFFF&amp;src=cd6qgg7pjuhr6vo0v7skr11e0c%40group.calendar.google.com&amp;color=%2329527A&amp;ctz=America%2FChicago" scrolling="no" class="embed-responsive-item"></iframe>
         </div>
     </div>
-
+    
     <!-- Javascript imports -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
     <script src="js/bootstrap.min.js"></script>

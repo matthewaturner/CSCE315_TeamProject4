@@ -1,0 +1,39 @@
+
+h2 {
+  margin-top: 0px;
+}
+
+/* XM Screens */
+@media (min-width: 0px) {
+  h2 {
+    font-size: 2em;
+  }
+}
+
+/* SM Screens */
+@media (min-width: 544px) {
+  h2 {
+    font-size: 2em;
+  }
+}
+
+/* MD Screens */
+@media (min-width: 768px) {
+  h2 {
+    font-size: 2em;
+  }
+}
+
+/* LG Screens */
+@media (min-width: 992px) {
+  h2 {
+    font-size: 1.4em;
+  }
+}
+
+/* XL Screens */
+@media (min-width: 1200px) {
+  h2 {
+    font-size: 1.4em;
+  }
+}

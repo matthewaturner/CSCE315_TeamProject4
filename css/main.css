@@ -1,0 +1,101 @@
+/* Builds mobile version first, expands to desktop sizes 
+*/
+
+:root {
+    --main-color: #007fff;
+}
+
+/* Basic Elements ---------------------------------------------------------- */
+
+body, html {
+  width: 100%;
+  height: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--main-color);
+}
+
+h1 {
+  font-size: 2.5em;
+}
+
+p {
+  font-size: 1.4em;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  padding-top: 30px;
+  background: url(../img/background.jpg) no-repeat center scroll;
+  background-size: cover;
+  background-color: white;
+  font-family: 'Roboto Slab';
+  text-align: center;
+}
+
+footer {
+  font-size: 1em;
+}
+
+h1 hr,
+h2 hr,
+h3 hr,
+h4 hr, 
+h5 hr,
+h6 hr {
+  color: var(--main-color);             /* IE7+ */
+  border-width: 2px;
+  border-color: var(--main-color);      /* Chrome and Safari */
+  background-color: var(--main-color);  /* Firefox and Opera */
+  max-width: 900px;
+}
+
+.btn:hover,
+.btn:focus,
+.btn:active,
+.btn.active,
+.btn {
+    background-color: var(--main-color);
+    border-color: white;
+    text-color: white;
+}
+
+/* Navbar ------------------------------------------------------------------ */
+
+.navbar-default {
+  background-color: var(--main-color);
+  border-color: var(--main-color);
+  line-height: 30px;
+  font-size: 1.5em;
+}
+
+.navbar-default .navbar-brand {
+    font-size: 1.8em;
+}
+
+.navbar-default .navbar-brand,
+.navbar-default .navbar-brand:hover,
+.navbar-default .navbar-brand:focus,
+.navbar-default .navbar-nav > li > a {
+  color: white;
+}
+
+.navbar-default .navbar-toggle .icon-bar {
+  background-color: white;
+}
+
+.navbar-default .navbar-toggle:hover,
+.navbar-default .navbar-toggle:focus {
+  background-color: var(--main-color);
+}
+
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus,
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus {
+  color: var(--main-color);
+  background-color: white;
+}

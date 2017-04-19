@@ -4,6 +4,7 @@ body {
   display: table;
   width: 100%;
   height: 100%;
+  padding: 20px;
   background: url(../img/background.jpg) no-repeat center scroll;
   background-size: cover;
   text-align: center;
@@ -22,38 +23,20 @@ body {
     text-align: center;
 }
 
-#brand .brand-heading {
-  font-size: 5em;
-}
-
-#brand .intro-text {
-  font-size: 2em;
-}
-
 /* form */
 #interactive {
-    position: absolute;
+    padding-top: 200px;
     width: 100%;
-    top: 50%;
-}
-
-#interactive #form {
-    position: relative;
-    margin: 0 auto;
-    width: 30%;
-    text-align: center;
 }
 
 #input-name {
-    height: auto;
-    width: 60%;
-    vertical-align: middle;
-    float: left;
+    width: 100%;
+    text-align: center;
+    float:right;
 }
 
 #btn-points {
-    width: 40%;
+    width: 100%;
     padding: 5px;
-    vertical-align: middle;
-    float: right;
+    float:left;
 }

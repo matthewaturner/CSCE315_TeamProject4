@@ -1,4 +1,11 @@
 
 #signup-container {
     padding-top: 30px;
+    height: 100%;
+}
+
+iframe {
+    width: 50%;
+    min-width: 280px;
+    height: 65%;
 }

@@ -12,7 +12,6 @@ var userData;
 /* ------------------------------------------------------------------------- */
 /*   Google Authentication Steps                                             */
 /* ------------------------------------------------------------------------- */
-
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/sheets.googleapis.com-nodejs-quickstart.json
 var SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
@@ -151,6 +150,10 @@ app.use(function(req, res, next) {
 
 // serve the json extracted from google docs
 app.get("/points-api", function(req, res) {
+    res.json(userData);
+});
+
+app.post("/points-api", function(req, res) {
     res.json(userData);
 });
 

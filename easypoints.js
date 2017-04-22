@@ -1,13 +1,18 @@
 // imports
+var express = require("express");
+var bodyParser = require("body-parser");
 var fs = require("fs");
 var readline = require("readline");
-var express = require("express");
 var google = require("googleapis");
 var googleAuth = require("google-auth-library");
 
 // make a new express application
 var app = express();
 var userData;
+
+// parses variables given to this app in url encodings / etc
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 
 /* ------------------------------------------------------------------------- */
 /*   Google Authentication Steps                                             */
@@ -119,21 +124,16 @@ function getData(auth) {
       return;
     }
 
-    userData = response;
-
-    /*
+    // iterate over the response and add information to userData json
     var rows = response.values;
     if (rows.length == 0) {
-      console.log('No data found.');
+      console.log('WARNING: No data found on google sheet.');
     } else {
-      console.log('Name, Email:');
       for (var i = 0; i < rows.length; i++) {
         var row = rows[i];
-        // Print columns A and E, which correspond to indices 0 and 4.
-        console.log('%s, %s', row[0], row[1]);
+        userData[row[0]] = {total: row[1]};
       }
     }
-    */
   });
 }
 
@@ -148,13 +148,15 @@ app.use(function(req, res, next) {
     next();
 });
 
-// serve the json extracted from google docs
-app.get("/points-api", function(req, res) {
-    res.json(userData);
-});
-
-app.post("/points-api", function(req, res) {
-    res.json(userData);
+// handles get requests
+app.get("/points-api/:name", function(req, res) {
+    if(req.params.name in userData) {
+        res.json(userData[req.params.name]);
+    } else {
+        res.json({
+            total: 0
+        });
+    }
 });
 
 // start the default fileserver that comes with express

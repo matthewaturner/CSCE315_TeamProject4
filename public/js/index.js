@@ -10,9 +10,12 @@ $(document).ready(function() {
         $.get('/points-api/' + $('#input-name').val(), {}, printPoints);
         //$.post('/points-api', {name: $('#input-name').val()}, printPoints);
         //this.reset();
+        $('#name-form').hide();
+        $('#point-totals').show();
     });
 });
 
 function printPoints(data) {
+    document.getElementById("pointText").innerHTML = JSON.stringify(data);
     console.log("Data received: ", JSON.stringify(data));
 };

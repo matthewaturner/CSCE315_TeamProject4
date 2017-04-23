@@ -86,7 +86,7 @@ h6 hr {
 .navbar-default {
   background-color: var(--main-color);
   border-color: var(--main-color);
-  line-height: 30px;
+  line-height: 25px;
   font-size: 1.5em;
 }
 

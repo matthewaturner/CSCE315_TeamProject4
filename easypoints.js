@@ -8,11 +8,18 @@ var googleAuth = require("google-auth-library");
 
 // make a new express application
 var app = express();
-var userData;
 
 // parses variables given to this app in url encodings / etc
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+// requests used
+var categories = {};
+var events = {};
+var roster = {};
+
+// oauth token to make requests with
+authToken = null;
 
 /* ------------------------------------------------------------------------- */
 /*   Google Authentication Steps                                             */
@@ -54,7 +61,9 @@ function authorize(credentials, callback) {
       getNewToken(oauth2Client, callback);
     } else {
       oauth2Client.credentials = JSON.parse(token);
-      callback(oauth2Client);
+      // store the auth token
+      authToken = oauth2Client;
+      callback();
     }
   });
 }
@@ -86,7 +95,9 @@ function getNewToken(oauth2Client, callback) {
       }
       oauth2Client.credentials = token;
       storeToken(token);
-      callback(oauth2Client);
+      // store auth tokens in our request objects
+      authToken = oauth2Client;
+      callback();
     });
   });
 }
@@ -108,37 +119,129 @@ function storeToken(token) {
   console.log('Token stored to ' + TOKEN_PATH);
 }
 
-/**
- * Print the names and majors of students in a sample spreadsheet:
- * https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
- */
-function getData(auth) {
-  var sheets = google.sheets('v4');
-  sheets.spreadsheets.values.get({
-    auth: auth,
-    spreadsheetId: '1s_GU9ADQ9BHu5WLIl-nz6u-I5wg6fKHwluxG4VAGEYo',
-    range: 'A2:B',
-  }, function(err, response) {
-    if (err) {
-      console.log('The API returned an error: ' + err);
-      return;
-    }
+/* ------------------------------------------------------------------------- */
+/*   End Google Authentication Steps                                         */
+/* ------------------------------------------------------------------------- */
 
-    // iterate over the response and add information to userData json
-    var rows = response.values;
-    if (rows.length == 0) {
-      console.log('WARNING: No data found on google sheet.');
-    } else {
-      for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        userData[row[0]] = {total: row[1]};
+function getData() {
+    
+    getCategoryData(function() {
+        getEventData(function() {
+            getRosterData();
+        });
+    });
+
+    //getPeopleData();
+}
+
+function getCategoryData(callback) {
+    var sheets = google.sheets('v4');
+
+    sheets.spreadsheets.values.get({
+      auth: authToken,
+      spreadsheetId: '1dscUPCA9T0mdQJ44dR4P53t6190QB8KGtPpsArPOAwg',
+      range: 'A2:B'
+    }, function(err, response) {
+      if (err) {
+        console.log('The API returned an error: ' + err);
+        return;
       }
-    }
-  });
+
+      var rows = response.values;
+      if (rows.length == 0) {
+        console.log('WARNING: No data found on google sheet.');
+      } else {
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          categories[row[0]] = {"point-goal": row[1]};
+        }
+      }
+
+      console.log("Categories loaded: \n" + JSON.stringify(categories));
+
+      callback();
+    });
+}
+
+function getEventData(callback) {
+    var sheets = google.sheets('v4');
+
+    sheets.spreadsheets.values.get({
+      auth: authToken,
+      spreadsheetId: '1wm4A8jT83FmAyKsIDk-376gUO44o1dYHwuxcnkCG0Lk',
+      range: 'A2:D'
+    }, function(err, response) {
+      if (err) {
+        console.log('The API returned an error: ' + err);
+        return;
+      }
+
+      var rows = response.values;
+      if (rows.length == 0) {
+        console.log('WARNING: No data found on google sheet.');
+      } else {
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          events[row[0]] = {"date": row[1], "category": row[2], "points": row[3]};
+        }
+      }
+
+      console.log("Events Loaded: \n" + JSON.stringify(events));
+
+      callback();
+    });
+}
+
+function getRosterData() {
+    var sheets = google.sheets('v4');
+
+    sheets.spreadsheets.values.get({
+        auth: authToken,
+        spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
+        range: 'A1:J'
+    }, function(err, response) {
+      if (err) {
+        console.log('The API returned an error: ' + err);
+        return;
+      }
+  
+      // iterate over the response and add information to userData json
+      var rows = response.values;
+      if (rows.length == 0) {
+        console.log('WARNING: No data found on google sheet.');
+      } else {
+        // first create a map of columns to event names
+        var colToEvent = {};
+        var row = rows[0];
+        for(var i=1; i<row.length; i++) {
+          colToEvent[i] = row[i];
+        }
+
+        // using the column to event name map, total points
+        for (var i = 1; i < rows.length; i++) {
+          // object of points this person has earned
+          var points = {"total": 0};
+          var row = rows[i];
+          
+          for(var j=1; j<row.length; j++) {
+            var evnt = events[colToEvent[j]];
+
+            if(row[j] == "present") {
+                points[evnt["category"]] = points[evnt["category"]] || 0 
+                points[evnt["category"]] = parseInt(points[evnt["category"]]) + parseInt(evnt["points"]);
+                points["total"] = parseInt(points["total"]) + parseInt(evnt["points"]);
+            }
+          }
+
+          // add this person and their points to the roster
+          roster[row[0]] = points;
+        }
+      }
+    });
 }
 
 /* ------------------------------------------------------------------------- */
-/*   End Google Authentication Steps                                         */
+/*     Server Routing                                                        */
 /* ------------------------------------------------------------------------- */
 
 // callback when request hits the server
@@ -148,13 +251,16 @@ app.use(function(req, res, next) {
     next();
 });
 
+app.get("/points-api", function(req, res) {
+});
+
 // handles get requests
 app.get("/points-api/:name", function(req, res) {
-    if(req.params.name in userData) {
-        res.json(userData[req.params.name]);
+    if(req.params.name in roster) {
+        res.json(roster[req.params.name]);
     } else {
         res.json({
-            total: 0
+            "total": 0
         });
     }
 });

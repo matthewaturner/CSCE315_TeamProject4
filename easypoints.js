@@ -125,6 +125,9 @@ function storeToken(token) {
 
 function getData() {
     
+    // the calls to google's api are asynchronous so we chain them together 
+    // with callbacks in order to make them execute sequentially because some
+    // data formatting depends on previous data
     getCategoryData(function() {
         getEventData(function() {
             getRosterData();
@@ -157,8 +160,6 @@ function getCategoryData(callback) {
         }
       }
 
-      console.log("Categories loaded: \n" + JSON.stringify(categories));
-
       callback();
     });
 }
@@ -185,8 +186,6 @@ function getEventData(callback) {
           events[row[0]] = {"date": row[1], "category": row[2], "points": row[3]};
         }
       }
-
-      console.log("Events Loaded: \n" + JSON.stringify(events));
 
       callback();
     });
@@ -252,6 +251,8 @@ app.use(function(req, res, next) {
 });
 
 app.get("/points-api", function(req, res) {
+    // reloads all the data on the server
+    getData();
 });
 
 // handles get requests

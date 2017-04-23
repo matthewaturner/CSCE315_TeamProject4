@@ -1,0 +1,16 @@
+{
+  "name": "easy-points",
+  "version": "1.0.0",
+  "description": "Simple point management system for college organizations, utilizing google sheets",
+  "main": "easypoints.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Matthew Turner, Jonathan Brosnan, Josephine Cornelius",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.14.1",
+    "cors": "^2.7.1",
+    "express": "^4.13.3"
+  }
+}

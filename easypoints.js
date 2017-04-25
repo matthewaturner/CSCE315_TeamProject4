@@ -8,18 +8,19 @@ var googleAuth = require("google-auth-library");
 
 // make a new express application
 var app = express();
+var sheets = google.sheets('v4');
 
 // parses variables given to this app in url encodings / etc
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// requests used
-var categories = {};
+// json objects that store the data we receive from google
+var requirements = {};
 var events = {};
 var roster = {};
 
 // oauth token to make requests with
-authToken = null;
+var authToken;
 
 /* ------------------------------------------------------------------------- */
 /*   Google Authentication Steps                                             */
@@ -124,26 +125,36 @@ function storeToken(token) {
 /* ------------------------------------------------------------------------- */
 
 function getData() {
+
+    process.stdout.write("Fetching fresh data from sheets...");
+
+    // reset all the data
+    requirements = {};
+    events = {};
+    roster = {};
+    members = {};
     
     // the calls to google's api are asynchronous so we chain them together 
     // with callbacks in order to make them execute sequentially because some
     // data formatting depends on previous data
-    getCategoryData(function() {
+    getRequirementsData(function() {
         getEventData(function() {
-            getRosterData();
+            getMembersAndPointsData();
         });
     });
 
-    //getPeopleData();
+    getPeopleData();
+
+    process.stdout.write("Fetched data.");
 }
 
-function getCategoryData(callback) {
-    var sheets = google.sheets('v4');
+function getRequirementsData(callback) {
+/* Gets data from the Requirements sheet */
 
     sheets.spreadsheets.values.get({
       auth: authToken,
-      spreadsheetId: '1dscUPCA9T0mdQJ44dR4P53t6190QB8KGtPpsArPOAwg',
-      range: 'A2:B'
+      spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
+      range: 'Requirements!A2:B'
     }, function(err, response) {
       if (err) {
         console.log('The API returned an error: ' + err);
@@ -156,7 +167,7 @@ function getCategoryData(callback) {
       } else {
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          categories[row[0]] = {"point-goal": row[1]};
+          requirements[row[0]] = {"point-goal": row[1]};
         }
       }
 
@@ -165,12 +176,12 @@ function getCategoryData(callback) {
 }
 
 function getEventData(callback) {
-    var sheets = google.sheets('v4');
+/* Gets data from the Events sheet */
 
     sheets.spreadsheets.values.get({
       auth: authToken,
-      spreadsheetId: '1wm4A8jT83FmAyKsIDk-376gUO44o1dYHwuxcnkCG0Lk',
-      range: 'A2:D'
+      spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
+      range: 'Events!A2:D'
     }, function(err, response) {
       if (err) {
         console.log('The API returned an error: ' + err);
@@ -191,13 +202,13 @@ function getEventData(callback) {
     });
 }
 
-function getRosterData() {
-    var sheets = google.sheets('v4');
+function getMembersAndPointsData() {
+/* Gets data from the Members and Points sheet */
 
     sheets.spreadsheets.values.get({
         auth: authToken,
         spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
-        range: 'A1:J'
+        range: 'Members and Points!A1:ZZ'
     }, function(err, response) {
       if (err) {
         console.log('The API returned an error: ' + err);
@@ -219,16 +230,31 @@ function getRosterData() {
         // using the column to event name map, total points
         for (var i = 1; i < rows.length; i++) {
           // object of points this person has earned
-          var points = {"total": 0};
+          var points = {"Total": 0};
           var row = rows[i];
           
-          for(var j=1; j<row.length; j++) {
+          for(var j=3; j<row.length; j++) {
+
+            // skip this cell if the heading was "Comments" or blank
+            if(colToEvent[j] === "Comments" || colToEvent[j] === "") 
+                continue;
+
             var evnt = events[colToEvent[j]];
 
-            if(row[j] == "present") {
-                points[evnt["category"]] = points[evnt["category"]] || 0 
+            if(row[j].toUpperCase() === "P") {
+                points[evnt["category"]] = points[evnt["category"]] || 0;
                 points[evnt["category"]] = parseInt(points[evnt["category"]]) + parseInt(evnt["points"]);
-                points["total"] = parseInt(points["total"]) + parseInt(evnt["points"]);
+                points["Total"] = parseInt(points["Total"]) + parseInt(evnt["points"]);
+            } else if(!isNaN(parseInt(row[j]))) {
+                points[evnt["category"]] = points[evnt["category"]] || 0;
+                points[evnt["category"]] = parseInt(points[evnt["category"]]) + parseInt(row[j]);
+                points["Total"] = parseInt(points["Total"]) + parseInt(row[j]);
+            }
+          }
+
+          for(var key in points) {
+            if(points.hasOwnProperty(key)) {
+                points[key + "-Goal"] = requirements[key]["point-goal"];
             }
           }
 
@@ -239,29 +265,74 @@ function getRosterData() {
     });
 }
 
+function getPeopleData(callback) {
+/* Gets the data from the People sheet */
+
+    sheets.spreadsheets.values.get({
+      auth: authToken,
+      spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
+      range: 'Members!A2:D'
+    }, function(err, response) {
+      if (err) {
+        console.log('The API returned an error: ' + err);
+        return;
+      }
+
+      var rows = response.values;
+      if (rows.length == 0) {
+        console.log('WARNING: No data found on google sheet.');
+      } else {
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          members[row[0]] = {"Email": row[1], "Phone Number": row[2], "Carrier": row[3]};
+        }
+      }
+    });
+}
+
 /* ------------------------------------------------------------------------- */
 /*     Server Routing                                                        */
 /* ------------------------------------------------------------------------- */
 
+// call getData every 5 minutes
+// var interval = setInterval(getData(), 300000);
+
 // callback when request hits the server
+// just so we know when connections hit the server
 app.use(function(req, res, next) {
     console.log(`${req.method} request for '${req.url}'`);
     // calls the next function in the call stack
     next();
 });
 
-app.get("/points-api", function(req, res) {
-    // reloads all the data on the server
+// serves requirements data
+app.get("/requirements", function(req, res) {
+    res.json(requirements);
+});
+
+// serves events data
+app.get("/events", function(req, res) {
+    res.json(events);
+});
+
+// serves member and points data
+app.get("points", function(req, res) {
     getData();
+    res.json(events);
+});
+
+// serves people data
+app.get("/people", function(req, res) {
+    res.json(people);
 });
 
 // handles get requests
-app.get("/points-api/:name", function(req, res) {
+app.get("/points/:name", function(req, res) {
     if(req.params.name in roster) {
         res.json(roster[req.params.name]);
     } else {
         res.json({
-            "total": 0
+            "Total": 0
         });
     }
 });

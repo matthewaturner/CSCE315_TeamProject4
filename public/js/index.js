@@ -7,8 +7,8 @@ $('.navbar-collapse ul li a').click(function() {
 $(document).ready(function() {
     $('form').submit(function (e) {
         e.preventDefault();
-        $.get('/points-api/' + $('#input-name').val(), {}, printPoints);
-        //$.post('/points-api', {name: $('#input-name').val()}, printPoints);
+        $.get('/points/' + $('#input-name').val(), {}, printPoints);
+        //$.post('/points', {name: $('#input-name').val()}, printPoints);
         //this.reset();
         $('#name-form').hide();
         $('#point-totals').show();

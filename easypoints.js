@@ -27,7 +27,7 @@ var authToken;
 /* ------------------------------------------------------------------------- */
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/sheets.googleapis.com-nodejs-quickstart.json
-var SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
+var SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'sheets.googleapis.com-nodejs-quickstart.json';
@@ -121,11 +121,12 @@ function storeToken(token) {
 }
 
 /* ------------------------------------------------------------------------- */
-/*   End Google Authentication Steps                                         */
+/*   Reading Data From Sheets                                                */
 /* ------------------------------------------------------------------------- */
 
 function getData() {
 
+    console.time("getData");
     process.stdout.write("Fetching fresh data from sheets...");
 
     // reset all the data
@@ -139,13 +140,14 @@ function getData() {
     // data formatting depends on previous data
     getRequirementsData(function() {
         getEventData(function() {
-            getMembersAndPointsData();
+            getMembersAndPointsData(function() {
+                console.timeEnd("getData");
+                writeTotals();
+            });
         });
     });
 
-    getPeopleData();
-
-    process.stdout.write("Fetched data.");
+    getMembersData();
 }
 
 function getRequirementsData(callback) {
@@ -167,7 +169,7 @@ function getRequirementsData(callback) {
       } else {
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          requirements[row[0]] = {"point-goal": row[1]};
+          requirements[row[0]] = {"point-goal": parseInt(row[1])};
         }
       }
 
@@ -194,7 +196,7 @@ function getEventData(callback) {
       } else {
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          events[row[0]] = {"date": row[1], "category": row[2], "points": row[3]};
+          events[row[0]] = {"date": row[1], "category": row[2], "points": parseInt(row[3])};
         }
       }
 
@@ -202,7 +204,7 @@ function getEventData(callback) {
     });
 }
 
-function getMembersAndPointsData() {
+function getMembersAndPointsData(callback) {
 /* Gets data from the Members and Points sheet */
 
     sheets.spreadsheets.values.get({
@@ -220,6 +222,7 @@ function getMembersAndPointsData() {
       if (rows.length == 0) {
         console.log('WARNING: No data found on google sheet.');
       } else {
+
         // first create a map of columns to event names
         var colToEvent = {};
         var row = rows[0];
@@ -227,34 +230,47 @@ function getMembersAndPointsData() {
           colToEvent[i] = row[i];
         }
 
-        // using the column to event name map, total points
-        for (var i = 1; i < rows.length; i++) {
+        // using the column to event name map, total points for the members
+        for (var i = 3; i < rows.length; i++) {
           // object of points this person has earned
           var points = {"Total": 0};
           var row = rows[i];
           
-          for(var j=3; j<row.length; j++) {
+          // start at the second column
+          for(var j=1; j<row.length; j++) {
 
             // skip this cell if the heading was "Comments" or blank
             if(colToEvent[j] === "Comments" || colToEvent[j] === "") 
                 continue;
 
             var evnt = events[colToEvent[j]];
+            var category = evnt["category"];
+
+            points[category] = points[category] || 0;
+            points[category + "-Goal"] = points[category + "-Goal"] || 0;
 
             if(row[j].toUpperCase() === "P") {
-                points[evnt["category"]] = points[evnt["category"]] || 0;
-                points[evnt["category"]] = parseInt(points[evnt["category"]]) + parseInt(evnt["points"]);
-                points["Total"] = parseInt(points["Total"]) + parseInt(evnt["points"]);
+                // add the points for this event to the category and the total
+                points[category] += evnt["points"];
+                points["Total"] += evnt["points"];
+            } else if(row[j].toUpperCase() === "E") {
+                // start the category goal negative (reduces the category goal for this person)
+                points[category + "-Goal"] -= evnt["points"];
+            } else if(row[j] === "U") {
+                // do nothing
             } else if(!isNaN(parseInt(row[j]))) {
-                points[evnt["category"]] = points[evnt["category"]] || 0;
-                points[evnt["category"]] = parseInt(points[evnt["category"]]) + parseInt(row[j]);
-                points["Total"] = parseInt(points["Total"]) + parseInt(row[j]);
+                // if the entry is a number add that number to the total points of this category and the total
+                points[category] += parseInt(row[j]);
+                points["Total"] += parseInt(row[j]);
             }
           }
 
-          for(var key in points) {
-            if(points.hasOwnProperty(key)) {
-                points[key + "-Goal"] = requirements[key]["point-goal"];
+          for(var category in requirements) {
+            if(points.hasOwnProperty(category)) {
+                // no guarantee that this happened for every category
+                points[category + "-Goal"] = points[category + "-Goal"] || 0;
+                // add the category goal for this person and the total category goal together
+                points[category + "-Goal"] += requirements[category]["point-goal"];
             }
           }
 
@@ -262,11 +278,13 @@ function getMembersAndPointsData() {
           roster[row[0]] = points;
         }
       }
+
+      callback();
     });
 }
 
-function getPeopleData(callback) {
-/* Gets the data from the People sheet */
+function getMembersData(callback) {
+/* Gets the data from the Members sheet */
 
     sheets.spreadsheets.values.get({
       auth: authToken,
@@ -289,13 +307,77 @@ function getPeopleData(callback) {
       }
     });
 }
+/* ------------------------------------------------------------------------- */
+/*     Writing Data To Sheets                                                */
+/* ------------------------------------------------------------------------- */
+
+function writeTotals() {
+
+    console.time("writeTotals");
+    process.stdout.write("Writing data to totals sheet...");
+
+    sheets.spreadsheets.values.update({
+        auth: authToken,
+        spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
+        range: 'Totals!A1',
+        valueInputOption: 'USER_ENTERED',
+        resource: {range: 'Totals!A1',
+                   values: formatTotals()}
+    }, function(err, response) {
+        if(err) {
+            console.log('Error while writing to the spreadsheet: ' + err);
+            return;
+        }
+    });
+
+    console.timeEnd("writeTotals");
+}
+
+function formatTotals() {
+    var totals = [];
+    var row = [""];
+    
+    // create first row (headings of the columns)
+    for(var category in requirements) {
+        if(requirements.hasOwnProperty(category)) {
+            row.push(category);
+        }
+    }
+    totals.push(row);
+
+    // create possible points row
+    row = ["Required Points"];
+    for(var category in requirements) {
+        if(requirements.hasOwnProperty(category)) {
+            row.push(requirements[category]["point-goal"]);
+        }
+    }
+    totals.push(row);
+
+    totals.push(["Members"]);
+
+    // create the rest of the rows
+    for(var member in roster) {
+        if(roster.hasOwnProperty(member)) {
+            row = [member];
+            for(var category in requirements) {
+                if(requirements.hasOwnProperty(category)) {
+                    row.push(roster[member][category] - roster[member][category + "-Goal"]);
+                }
+            }
+        }
+        totals.push(row);
+    }
+
+    return totals;
+}
 
 /* ------------------------------------------------------------------------- */
 /*     Server Routing                                                        */
 /* ------------------------------------------------------------------------- */
 
 // call getData every 5 minutes
-// var interval = setInterval(getData(), 300000);
+var interval = setInterval(getData, 300000);
 
 // callback when request hits the server
 // just so we know when connections hit the server
@@ -321,12 +403,12 @@ app.get("points", function(req, res) {
     res.json(events);
 });
 
-// serves people data
-app.get("/people", function(req, res) {
-    res.json(people);
+// serves members data
+app.get("/members", function(req, res) {
+    res.json(members);
 });
 
-// handles get requests
+// serves data for a specific member
 app.get("/points/:name", function(req, res) {
     if(req.params.name in roster) {
         res.json(roster[req.params.name]);

@@ -40,4 +40,6 @@ form > button {
 
 #point-totals {
   padding-top: 200px;
+  width: 400px;
+  margin: 0 auto;
 }

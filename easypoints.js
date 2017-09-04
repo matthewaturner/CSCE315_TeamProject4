@@ -9,6 +9,7 @@ var googleAuth = require("google-auth-library");
 // make a new express application
 var app = express();
 var sheets = google.sheets('v4');
+var gmail = google.gmail('v1');
 
 // parses variables given to this app in url encodings / etc
 app.use(bodyParser.json());
@@ -27,12 +28,13 @@ var authToken;
 /* ------------------------------------------------------------------------- */
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/sheets.googleapis.com-nodejs-quickstart.json
-var SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+var SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/gmail.modify',
+              'https://www.googleapis.com/auth/gmail.compose', 'https://www.googleapis.com/auth/gmail.send'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
-var TOKEN_PATH = TOKEN_DIR + 'sheets.googleapis.com-nodejs-quickstart.json';
+var TOKEN_PATH = TOKEN_DIR + 'googleapis.com-nodejs-quickstart.json';
 
-fs.readFile('client_secret.json', function processClientSecrets(err, content) {
+fs.readFile('client_secret_sheets.json', function processClientSecrets(err, content) {
   if (err) {
     console.log('Error loading client secret file: ' + err);
     return;
@@ -147,7 +149,10 @@ function getData() {
         });
     });
 
-    getMembersData();
+    setTimeout(function() {
+        getMembersData(function() {
+        });
+    }, 5000);
 }
 
 function getRequirementsData(callback) {
@@ -233,7 +238,7 @@ function getMembersAndPointsData(callback) {
         // using the column to event name map, total points for the members
         for (var i = 3; i < rows.length; i++) {
           // object of points this person has earned
-          var points = {"Total": 0};
+          var points = {"Total": {points: 0, goal: 0}};
           var row = rows[i];
           
           // start at the second column
@@ -246,31 +251,33 @@ function getMembersAndPointsData(callback) {
             var evnt = events[colToEvent[j]];
             var category = evnt["category"];
 
-            points[category] = points[category] || 0;
-            points[category + "-Goal"] = points[category + "-Goal"] || 0;
+            points[category] = points[category] || {}
+            points[category].points = points[category].points || 0;
+            points[category].goal = points[category].goal || 0;
 
             if(row[j].toUpperCase() === "P") {
                 // add the points for this event to the category and the total
-                points[category] += evnt["points"];
-                points["Total"] += evnt["points"];
+                points[category].points += evnt["points"];
+                points["Total"].points += evnt["points"];
             } else if(row[j].toUpperCase() === "E") {
                 // start the category goal negative (reduces the category goal for this person)
-                points[category + "-Goal"] -= evnt["points"];
+                points[category].goal -= evnt["points"];
+                points["Total"].goal -= evnt["points"];
             } else if(row[j] === "U") {
                 // do nothing
             } else if(!isNaN(parseInt(row[j]))) {
                 // if the entry is a number add that number to the total points of this category and the total
-                points[category] += parseInt(row[j]);
-                points["Total"] += parseInt(row[j]);
+                points[category].points += parseInt(row[j]);
+                points["Total"].points += parseInt(row[j]);
             }
           }
 
           for(var category in requirements) {
             if(points.hasOwnProperty(category)) {
                 // no guarantee that this happened for every category
-                points[category + "-Goal"] = points[category + "-Goal"] || 0;
+                points[category].goal = points[category].goal || 0;
                 // add the category goal for this person and the total category goal together
-                points[category + "-Goal"] += requirements[category]["point-goal"];
+                points[category].goal += requirements[category]["point-goal"];
             }
           }
 
@@ -289,7 +296,7 @@ function getMembersData(callback) {
     sheets.spreadsheets.values.get({
       auth: authToken,
       spreadsheetId: '1ubTGZMGCL4IFurwfKmhaXa6Eb4VKGOdMeDFn7rOMhHk',
-      range: 'Members!A2:D'
+      range: 'Members!A2:B'
     }, function(err, response) {
       if (err) {
         console.log('The API returned an error: ' + err);
@@ -302,11 +309,14 @@ function getMembersData(callback) {
       } else {
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          members[row[0]] = {"Email": row[1], "Phone Number": row[2], "Carrier": row[3]};
+          members[row[0]] = {"email": row[1]};
         }
       }
+
+      callback();
     });
 }
+
 /* ------------------------------------------------------------------------- */
 /*     Writing Data To Sheets                                                */
 /* ------------------------------------------------------------------------- */
@@ -373,6 +383,59 @@ function formatTotals() {
 }
 
 /* ------------------------------------------------------------------------- */
+/*     Sending Emails                                                        */
+/* ------------------------------------------------------------------------- */
+
+function sendPoints(msg) {
+
+    console.log("Sending Points with msg:" + msg);
+
+    for(var m in members) {
+
+        var member = members[m];
+
+        if(!member["email"])
+            continue;
+
+        sendMessage(member['email'], 'matthewallenturner@gmail.com', 'Points Update', `
+                Hello ${m},
+                ${msg}
+                ---------------
+                ${JSON.stringify(roster[m])}
+                `);
+    }
+}
+
+function sendMessage(to, from, subj, msg) {
+    var raw = makeBody(to, from, subj, msg);
+    gmail.users.messages.send({
+        auth: authToken,
+        userId: 'me',
+        resource: {
+            raw: raw
+        }
+    }, function(err, res) {
+        if(err) {
+            console.log(err);
+        }
+    });
+}
+
+function makeBody(to, from, subject, message) {
+    var str = ["Content-Type: text/plain; charset=\"UTF-8\"\n",
+        "MIME-Version: 1.0\n",
+        "Content-Transfer-Encoding: 7bit\n",
+        "to: ", to, "\n",
+        "from: ", from, "\n",
+        "subject: ", subject, "\n\n",
+        message
+    ].join('');
+
+    var encodedMail = new Buffer(str).toString("base64").replace(/\+/g, '-').replace(/\//g, '_');
+    return encodedMail;
+}
+
+/* ------------------------------------------------------------------------- */
 /*     Server Routing                                                        */
 /* ------------------------------------------------------------------------- */
 
@@ -398,9 +461,8 @@ app.get("/events", function(req, res) {
 });
 
 // serves member and points data
-app.get("points", function(req, res) {
-    getData();
-    res.json(events);
+app.get("/points", function(req, res) {
+    getData(res.json(roster));
 });
 
 // serves members data
@@ -417,6 +479,10 @@ app.get("/points/:name", function(req, res) {
             "Total": 0
         });
     }
+});
+
+app.post("/emails/", function(req, res) {
+    sendPoints(req.body.bodybegin);
 });
 
 // start the default fileserver that comes with express
